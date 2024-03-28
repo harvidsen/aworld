@@ -8,7 +8,3 @@ edition = "2021"
 [dependencies]
 comfy = { git = "https://github.com/darthdeus/comfy.git", rev = "13f4ac09fc9b664ec32b67b98bbb950c71269cb6" }
 wgpu = "0.19.3"
-
-[[bin]]
-name = "aworld"
-path = "main.rs"
