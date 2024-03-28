@@ -1,8 +1,8 @@
 use comfy::*;
 
-
 const WIDTH: f32 = 15.0; // Default camera zoom is 30, https://comfyengine.org/book/camera/
 const GROUND: f32 = -5.0; // Ground level, so we can draw a line at the bottom of the
+const GROUND_THICKNESS: f32 = 0.1;
 const GUY_SIZE: f32 = 0.5; // Size of the guy (wow, thanks Copilot)
 
 comfy_game!("AWorld", AWorld);
@@ -25,12 +25,15 @@ impl GameLoop for AWorld {
       draw_line(
          vec2(-WIDTH, GROUND),
          vec2(WIDTH, GROUND),
-         0.1,
+         GROUND_THICKNESS,
          WHITE,
          0
       );
       draw_circle(vec2(self.guy.x, self.guy.y), GUY_SIZE, RED, 0);
 
+      if self.guy.y > GROUND + GUY_SIZE + GROUND_THICKNESS {
+         self.guy.y -= 0.1;
+      }
 
       if is_key_down(KeyCode::Right) {
          self.guy.x += 0.5;
@@ -38,13 +41,8 @@ impl GameLoop for AWorld {
       if is_key_down(KeyCode::Left) {
          self.guy.x -= 0.5;
       }
-      if is_key_down(KeyCode::Up) {
-         self.guy.y += 0.5;
-      }
-      if is_key_down(KeyCode::Down) {
-         if self.guy.y > GROUND + GUY_SIZE {
-            self.guy.y -= 0.5;
-         }
+      if is_key_pressed(KeyCode::Space) {
+         self.guy.y += 1.0;
       }
    }
 }
