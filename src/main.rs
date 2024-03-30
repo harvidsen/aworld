@@ -11,9 +11,9 @@ comfy_game!("AWorld", AWorld);
 
 trait Acrobatics {
    fn jump(&mut self);
-   fn land(&mut self);
-   fn iter_air(&mut self, land: &Land); // TODO: Can we make this not require land?
-   fn on_ground(&self, land: &Land) -> bool;
+   fn iter_air(&mut self); // TODO: Can we make this not require land?
+   fn on_ground(&mut self, land: &World);
+   fn land(&mut self, ground: &Ground);
 }
 
 #[derive(Debug)]
@@ -22,41 +22,51 @@ pub struct Soul {
    pub y: f32,
    pub height: f32,
    pub y_speed: f32,
+   pub in_air: bool,
 }
 
 impl Acrobatics for Soul {
    fn jump(&mut self) {
-      self.y_speed += 1.0 * JUMP_FACTOR;
-      self.y += self.y_speed;
+      if !self.in_air {
+         self.y_speed += 1.0 * JUMP_FACTOR;
+         self.y += self.y_speed;
+      }
    }
-   fn land(&mut self) {
+   fn land(&mut self, ground: &Ground) {
       self.y_speed = 0.0;
+      self.y = ground.y + self.height;
+      self.in_air = false;
    }
-   fn on_ground(&self, land: &Land) -> bool { // TODO: More logical to put this in ground or land?
-      if self.y_speed > 0.0 { return false; } // Don't abort jumps
 
+   fn on_ground(&mut self, land: &World) {
+      // Don't abort jumps
+      if self.y_speed > 0.0 {
+         self.in_air = true;
+         return
+      }
+
+      // If touching a piece of land
       for ground in &land.pieces {
-         if self.x > ground.x_left // TODO: Sould should have a width to not fall over edge too easily
+         if self.x > ground.x_left // TODO: Soul should have a width to not fall over edge too easily
             && self.x < ground.x_right
             // Need to account for y_speed to not fall past floors
             && self.y - self.height + self.y_speed <= ground.y + GROUND_THICKNESS // If bottom on/under ground
             && self.y - self.y_speed >= ground.y { // If middle over ground
-            println!("On ground {:?}", ground);
-            return true
+            if self.in_air {
+               self.land(ground);
+            }
+            return
          }
       }
-      return false
+
+      // Otherwise continue to fall
+      self.in_air = true;
    }
+
    // Iterate vertical movement that should happen while airborne
-   fn iter_air(&mut self, land: &Land) {
-      println!("iter_air {:?}", self);
+   fn iter_air(&mut self) {
       self.y_speed -= 1.0 * FALL_FACTOR;
       self.y += (-MAX_FALL_SPEED).max(self.y_speed);
-
-      if self.on_ground(land) {
-         println!("Landing\n");
-         self.land()
-      }
    }
 }
 
@@ -90,11 +100,11 @@ fn make_ground (pos: Vec2, width: f32) -> Ground {
 }
 
 // The entire land we can explore
-pub struct Land {
+pub struct World {
    pieces: [Ground; 4],
 }
 
-impl Land {
+impl World {
    fn draw(&self) {
       for ground in &self.pieces {
          ground.draw()
@@ -104,14 +114,14 @@ impl Land {
 
 pub struct AWorld {
    pub guy: Soul,
-   pub land: Land
+   pub world: World
 }
 
 impl GameLoop for AWorld {
    fn new(_c: &mut EngineState) -> Self {
       Self {
-         guy: Soul { x: 0.0, y: 0.0, height: 0.5, y_speed: 0.0 },
-         land: Land {
+         guy: Soul { x: 0.0, y: 0.0, height: 0.5, y_speed: 0.0, in_air: true },
+         world: World {
             pieces: [
                make_ground(vec2(0.0, GROUND_LEVEL), WIDTH),
                make_ground(vec2(0.0, GROUND_LEVEL + 10.0), 3.0 ),
@@ -123,13 +133,16 @@ impl GameLoop for AWorld {
    }
 
    fn update(&mut self, _c: &mut EngineContext) {
-      self.land.draw();
+      // println!("update");
+      self.world.draw();
 
       // TODO: Put drawing in to Soul
       draw_circle(vec2(self.guy.x, self.guy.y), self.guy.height, RED, 0);
 
-      if !self.guy.on_ground(&self.land) {
-         self.guy.iter_air(&self.land);
+      self.guy.on_ground(&self.world);
+
+      if self.guy.in_air {
+         self.guy.iter_air();
       };
 
       if is_key_down(KeyCode::Right) {
@@ -139,10 +152,7 @@ impl GameLoop for AWorld {
          self.guy.x -= 0.5;
       }
       if is_key_pressed(KeyCode::Space) {
-         if self.guy.on_ground(&self.land) {
-            println!("Jumping {:?}", self.guy);
-            self.guy.jump()
-         }
+         self.guy.jump()
       }
    }
 }
